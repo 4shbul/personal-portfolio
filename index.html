@@ -1209,6 +1209,104 @@
             min-height: 100px;
         }
 
+        /* Image Upload Styles */
+        .image-upload-container {
+            position: relative;
+            border: 2px dashed var(--border);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .image-upload-container:hover {
+            border-color: var(--primary-500);
+            background: var(--bg-primary);
+        }
+
+        .image-upload-container.has-image {
+            padding: 0;
+            border: 2px solid var(--primary-500);
+        }
+
+        .image-upload-input {
+            display: none;
+        }
+
+        .image-upload-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--primary-100);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-600);
+            font-size: 1.5rem;
+        }
+
+        [data-theme="dark"] .upload-icon {
+            background: var(--primary-900);
+            color: var(--primary-300);
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+        }
+
+        .upload-hint {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            display: none;
+        }
+
+        .image-preview.active {
+            display: block;
+        }
+
+        .remove-image {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--error);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .remove-image.active {
+            display: flex;
+        }
+
+        .remove-image:hover {
+            background: #DC2626;
+            transform: scale(1.1);
+        }
+
         .tag-input-container {
             display: flex;
             flex-wrap: wrap;
@@ -1504,7 +1602,7 @@
                     <div class="hero-image">
                         <div class="hero-card">
                             <div class="hero-badge">Available for Hire</div>
-                            <img src="/img/hero.jpeg" alt="Ashabul Khaer">
+                            <img src="https://picsum.photos/seed/ashabulkhaer/400/400" alt="Ashabul Khaer">
                         </div>
                     </div>
                 </div>
@@ -1854,10 +1952,26 @@
                         <input type="date" id="projectDate" name="date" required>
                     </div>
                 </div>
+                
+                <!-- Image Upload Section -->
                 <div class="form-group full-width">
-                    <label for="projectImage">URL Gambar</label>
-                    <input type="url" id="projectImage" name="image" placeholder="https://example.com/image.jpg" required>
+                    <label>Upload Gambar Proyek</label>
+                    <div class="image-upload-container" id="imageUploadContainer">
+                        <input type="file" id="projectImage" class="image-upload-input" accept="image/*" onchange="handleImageUpload(event)">
+                        <label for="projectImage" class="image-upload-label" id="imageUploadLabel">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="upload-text">Klik atau drag gambar ke sini</div>
+                            <div class="upload-hint">Mendukung: JPG, PNG, GIF (Max: 5MB)</div>
+                        </label>
+                        <img id="imagePreview" class="image-preview" alt="Preview">
+                        <button type="button" class="remove-image" id="removeImageBtn" onclick="removeImage()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
+
                 <div class="form-group full-width">
                     <label for="projectDescription">Deskripsi</label>
                     <textarea id="projectDescription" name="description" required></textarea>
@@ -1934,6 +2048,7 @@
 
         let currentEditId = null;
         let currentTags = [];
+        let currentImageData = null;
         let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
         // Initialize app
@@ -2028,9 +2143,6 @@
             card.className = 'project-card';
             card.setAttribute('data-category', project.category);
             
-            const badgeClass = project.status === 'featured' ? 'project-badge' : 'project-badge' + ' ' + project.status;
-            const badgeText = project.status === 'featured' ? 'Featured' : '';
-            
             card.innerHTML = `
                 <div class="project-image">
                     <img src="${project.image}" alt="${project.title}">
@@ -2079,12 +2191,103 @@
             });
         }
 
+        // Image Upload Functionality
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('Ukuran gambar terlalu besar! Maksimal 5MB', 'error');
+                    event.target.value = '';
+                    return;
+                }
+
+                // Validate file type
+                if (!file.type.match('image.*')) {
+                    showToast('File harus berupa gambar!', 'error');
+                    event.target.value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImageData = e.target.result;
+                    displayImagePreview(currentImageData);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function displayImagePreview(imageSrc) {
+            const preview = document.getElementById('imagePreview');
+            const container = document.getElementById('imageUploadContainer');
+            const label = document.getElementById('imageUploadLabel');
+            const removeBtn = document.getElementById('removeImageBtn');
+
+            preview.src = imageSrc;
+            preview.classList.add('active');
+            container.classList.add('has-image');
+            label.style.display = 'none';
+            removeBtn.classList.add('active');
+        }
+
+        function removeImage() {
+            const preview = document.getElementById('imagePreview');
+            const container = document.getElementById('imageUploadContainer');
+            const label = document.getElementById('imageUploadLabel');
+            const removeBtn = document.getElementById('removeImageBtn');
+            const input = document.getElementById('projectImage');
+
+            preview.src = '';
+            preview.classList.remove('active');
+            container.classList.remove('has-image');
+            label.style.display = 'flex';
+            removeBtn.classList.remove('active');
+            input.value = '';
+            currentImageData = null;
+        }
+
+        // Drag and Drop functionality
+        const imageUploadContainer = document.getElementById('imageUploadContainer');
+        
+        imageUploadContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            imageUploadContainer.style.borderColor = 'var(--primary-500)';
+            imageUploadContainer.style.background = 'var(--bg-primary)';
+        });
+
+        imageUploadContainer.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            imageUploadContainer.style.borderColor = 'var(--border)';
+            imageUploadContainer.style.background = 'var(--bg-secondary)';
+        });
+
+        imageUploadContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            imageUploadContainer.style.borderColor = 'var(--border)';
+            imageUploadContainer.style.background = 'var(--bg-secondary)';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.match('image.*')) {
+                    const input = document.getElementById('projectImage');
+                    input.files = files;
+                    handleImageUpload({ target: input });
+                } else {
+                    showToast('File harus berupa gambar!', 'error');
+                }
+            }
+        });
+
         // Modal functionality
         function openAddModal() {
             currentEditId = null;
             currentTags = [];
+            currentImageData = null;
             document.getElementById('modalTitle').textContent = 'Tambah Proyek Baru';
             document.getElementById('projectForm').reset();
+            removeImage();
             updateTagDisplay();
             document.getElementById('projectModal').classList.add('active');
         }
@@ -2098,12 +2301,13 @@
             document.getElementById('projectCategory').value = project.category;
             document.getElementById('projectStatus').value = project.status;
             document.getElementById('projectDate').value = project.date;
-            document.getElementById('projectImage').value = project.image;
             document.getElementById('projectDescription').value = project.description;
             document.getElementById('projectDemo').value = project.demo;
             document.getElementById('projectGithub').value = project.github;
             
             currentTags = [...project.tags];
+            currentImageData = project.image;
+            displayImagePreview(currentImageData);
             updateTagDisplay();
             document.getElementById('projectModal').classList.add('active');
         }
@@ -2111,7 +2315,9 @@
         function closeModal() {
             document.getElementById('projectModal').classList.remove('active');
             document.getElementById('projectForm').reset();
+            removeImage();
             currentTags = [];
+            currentImageData = null;
             currentEditId = null;
         }
 
@@ -2156,13 +2362,19 @@
         document.getElementById('projectForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // Validate image
+            if (!currentImageData) {
+                showToast('Silakan upload gambar proyek!', 'error');
+                return;
+            }
+            
             const formData = new FormData(this);
             const projectData = {
                 title: formData.get('title'),
                 category: formData.get('category'),
                 status: formData.get('status'),
                 date: formData.get('date'),
-                image: formData.get('image'),
+                image: currentImageData,
                 description: formData.get('description'),
                 demo: formData.get('demo'),
                 github: formData.get('github'),
